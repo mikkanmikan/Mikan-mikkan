@@ -16,8 +16,9 @@ th, td { border: 1px solid #333; padding: 5px; text-align: center; }
 <body>
 
 <h1>英単語学習アプリ</h1>
+
 <div id="startScreen">
-  <button onclick="startQuiz()">スタート</button>
+  <button id="startBtn">スタート</button>
 </div>
 
 <div id="quiz"></div>
@@ -36,17 +37,16 @@ const words = [
 {eng:"perfunctory", jap:"おざなりの"}, {eng:"obsequious", jap:"へつらいの"}, {eng:"esoteric", jap:"難解な"},
 {eng:"loquacious", jap:"おしゃべりな"}, {eng:"epistolary", jap:"書簡体の"}, {eng:"callipygian", jap:"美尻の"},
 {eng:"lachrymose", jap:"涙もろい"}, {eng:"pulchritude", jap:"美しさ"}, {eng:"sycophant", jap:"おべっか使い"},
-{eng:"vituperate", jap:"非難する"}, {eng:"lachrymose", jap:"涙もろい"}, {eng:"inchoate", jap:"未発達の"},
-{eng:"pugnacious", jap:"好戦的な"}, {eng:"recalcitrant", jap:"反抗的な"}, {eng:"sagacious", jap:"賢明な"},
-{eng:"tenebrous", jap:"暗い"}, {eng:"taciturn", jap:"無口な"}, {eng:"ubiquitous", jap:"偏在する"},
-{eng:"vociferous", jap:"声高な"}, {eng:"xenophobic", jap:"外国人嫌いの"}, {eng:"zephyr", jap:"そよ風"},
-{eng:"abstruse", jap:"難解な"}, {eng:"blandishment", jap:"お世辞"}, {eng:"cacophony", jap:"不協和音"},
-{eng:"diaphanous", jap:"透ける"}, {eng:"euphemism", jap:"婉曲表現"}, {eng:"fastidious", jap:"気難しい"},
-{eng:"grandiloquent", jap:"大げさな"}, {eng:"heterogeneous", jap:"異種の"}, {eng:"ignominious", jap:"不名誉な"},
-{eng:"juxtapose", jap:"並置する"}, {eng:"kaleidoscopic", jap:"万華鏡のような"}, {eng:"lachrymose", jap:"涙もろい"},
+{eng:"vituperate", jap:"非難する"}, {eng:"inchoate", jap:"未発達の"}, {eng:"pugnacious", jap:"好戦的な"},
+{eng:"recalcitrant", jap:"反抗的な"}, {eng:"sagacious", jap:"賢明な"}, {eng:"tenebrous", jap:"暗い"},
+{eng:"taciturn", jap:"無口な"}, {eng:"vociferous", jap:"声高な"}, {eng:"xenophobic", jap:"外国人嫌いの"}, 
+{eng:"zephyr", jap:"そよ風"}, {eng:"abstruse", jap:"難解な"}, {eng:"blandishment", jap:"お世辞"}, 
+{eng:"cacophony", jap:"不協和音"}, {eng:"diaphanous", jap:"透ける"}, {eng:"euphemism", jap:"婉曲表現"},
+{eng:"fastidious", jap:"気難しい"}, {eng:"grandiloquent", jap:"大げさな"}, {eng:"heterogeneous", jap:"異種の"},
+{eng:"ignominious", jap:"不名誉な"}, {eng:"juxtapose", jap:"並置する"}, {eng:"kaleidoscopic", jap:"万華鏡のような"},
 {eng:"munificent", jap:"気前の良い"}, {eng:"nefarious", jap:"極悪な"}, {eng:"obstreperous", jap:"騒々しい"},
-{eng:"parsimonious", jap:"けちな"}, {eng:"quixotic", jap:"非現実的な"}, {eng:"recalcitrant", jap:"反抗的な"},
-{eng:"soporific", jap:"催眠性の"}, {eng:"tacit", jap:"暗黙の"}, {eng:"umbrageous", jap:"日陰の"}, {eng:"vicarious", jap:"代理の"}
+{eng:"parsimonious", jap:"けちな"}, {eng:"quixotic", jap:"非現実的な"}, {eng:"soporific", jap:"催眠性の"},
+{eng:"tacit", jap:"暗黙の"}, {eng:"umbrageous", jap:"日陰の"}, {eng:"vicarious", jap:"代理の"}
 ];
 
 // ワイブルモデル標準値
@@ -63,15 +63,6 @@ function getRandomWords(n) {
     return shuffled.slice(0, n);
 }
 
-// スタート
-function startQuiz() {
-    document.getElementById("startScreen").style.display = "none";
-    quizWords = getRandomWords(5);
-    current = 0;
-    answers = [];
-    showQuestion();
-}
-
 // 1問表示
 function showQuestion() {
     if(current >= quizWords.length){
@@ -82,8 +73,9 @@ function showQuestion() {
     document.getElementById("quiz").innerHTML = `
         <div>問題 ${current+1}: ${q.eng}</div>
         <input type="text" id="answer" placeholder="日本語を入力">
-        <button onclick="checkAnswer()">送信</button>
+        <button id="submitBtn">送信</button>
     `;
+    document.getElementById("submitBtn").addEventListener("click", checkAnswer);
 }
 
 // 回答チェック
@@ -94,13 +86,23 @@ function checkAnswer() {
     let correct = userAns === correctAns;
     answers.push({eng: quizWords[current].eng, correctAns: correctAns, userAns: userAns, correct: correct});
     resDiv.innerHTML = correct ? `正解！答え: ${correctAns}` : `不正解。答え: ${correctAns}`;
-    document.getElementById("quiz").innerHTML = `<button onclick="nextQuestion()">次へ</button>`;
+    document.getElementById("quiz").innerHTML = `<button id="nextBtn">次へ</button>`;
+    document.getElementById("nextBtn").addEventListener("click", nextQuestion);
 }
 
 // 次の問題へ
 function nextQuestion() {
     current++;
     document.getElementById("result").innerHTML = "";
+    showQuestion();
+}
+
+// スタート
+function startQuiz() {
+    document.getElementById("startScreen").style.display = "none";
+    quizWords = getRandomWords(5);
+    current = 0;
+    answers = [];
     showQuestion();
 }
 
@@ -155,6 +157,11 @@ function drawChart() {
         }
     });
 }
+
+// ページ読み込み後にスタートボタンにイベント追加
+document.addEventListener("DOMContentLoaded", () => {
+    document.getElementById("startBtn").addEventListener("click", startQuiz);
+});
 </script>
 
 </body>
