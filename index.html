@@ -2,95 +2,139 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>英単語学習 + Weibullモデル</title>
+<title>英単語学習アプリ + Weibullモデル</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 body { font-family: sans-serif; margin: 20px; }
-input { margin-top: 5px; }
 button { margin-top: 10px; padding: 5px 10px; }
-#result { margin-top: 15px; font-weight: bold; }
-#chartContainer { width: 80%; max-width: 600px; margin-top: 20px; }
+input { margin-top: 5px; padding: 3px; }
+#quiz, #result, #summary, #chartContainer { margin-top: 20px; }
+table { border-collapse: collapse; width: 80%; }
+th, td { border: 1px solid #333; padding: 5px; text-align: center; }
 </style>
 </head>
 <body>
 
-<h1>英単語学習（5問） + 次回学習日計算</h1>
+<h1>英単語学習アプリ</h1>
+<div id="startScreen">
+  <button onclick="startQuiz()">スタート</button>
+</div>
 
 <div id="quiz"></div>
 <div id="result"></div>
+<div id="summary"></div>
 <div id="chartContainer">
   <canvas id="forgetChart"></canvas>
 </div>
 
 <script>
-const const words = [
-  {eng: "ephemeral", jap: "はかない"},
-  {eng: "obfuscate", jap: "わかりにくくする"},
-  {eng: "quintessential", jap: "典型的な"},
-  {eng: "juxtaposition", jap: "並置"},
-  {eng: "ubiquitous", jap: "偏在する"},
-  {eng: "serendipity", jap: "偶然の幸運"},
-  {eng: "cogent", jap: "説得力のある"},
-  {eng: "antediluvian", jap: "太古の"},
-  {eng: "magnanimous", jap: "寛大な"},
-  {eng: "perfunctory", jap: "おざなりの"}
+// 50題の難単語リスト
+const words = [
+{eng:"ephemeral", jap:"はかない"}, {eng:"obfuscate", jap:"わかりにくくする"}, {eng:"quintessential", jap:"典型的な"},
+{eng:"juxtaposition", jap:"並置"}, {eng:"ubiquitous", jap:"偏在する"}, {eng:"serendipity", jap:"偶然の幸運"},
+{eng:"cogent", jap:"説得力のある"}, {eng:"antediluvian", jap:"太古の"}, {eng:"magnanimous", jap:"寛大な"},
+{eng:"perfunctory", jap:"おざなりの"}, {eng:"obsequious", jap:"へつらいの"}, {eng:"esoteric", jap:"難解な"},
+{eng:"loquacious", jap:"おしゃべりな"}, {eng:"epistolary", jap:"書簡体の"}, {eng:"callipygian", jap:"美尻の"},
+{eng:"lachrymose", jap:"涙もろい"}, {eng:"pulchritude", jap:"美しさ"}, {eng:"sycophant", jap:"おべっか使い"},
+{eng:"vituperate", jap:"非難する"}, {eng:"lachrymose", jap:"涙もろい"}, {eng:"inchoate", jap:"未発達の"},
+{eng:"pugnacious", jap:"好戦的な"}, {eng:"recalcitrant", jap:"反抗的な"}, {eng:"sagacious", jap:"賢明な"},
+{eng:"tenebrous", jap:"暗い"}, {eng:"taciturn", jap:"無口な"}, {eng:"ubiquitous", jap:"偏在する"},
+{eng:"vociferous", jap:"声高な"}, {eng:"xenophobic", jap:"外国人嫌いの"}, {eng:"zephyr", jap:"そよ風"},
+{eng:"abstruse", jap:"難解な"}, {eng:"blandishment", jap:"お世辞"}, {eng:"cacophony", jap:"不協和音"},
+{eng:"diaphanous", jap:"透ける"}, {eng:"euphemism", jap:"婉曲表現"}, {eng:"fastidious", jap:"気難しい"},
+{eng:"grandiloquent", jap:"大げさな"}, {eng:"heterogeneous", jap:"異種の"}, {eng:"ignominious", jap:"不名誉な"},
+{eng:"juxtapose", jap:"並置する"}, {eng:"kaleidoscopic", jap:"万華鏡のような"}, {eng:"lachrymose", jap:"涙もろい"},
+{eng:"munificent", jap:"気前の良い"}, {eng:"nefarious", jap:"極悪な"}, {eng:"obstreperous", jap:"騒々しい"},
+{eng:"parsimonious", jap:"けちな"}, {eng:"quixotic", jap:"非現実的な"}, {eng:"recalcitrant", jap:"反抗的な"},
+{eng:"soporific", jap:"催眠性の"}, {eng:"tacit", jap:"暗黙の"}, {eng:"umbrageous", jap:"日陰の"}, {eng:"vicarious", jap:"代理の"}
 ];
 
-// シャッフルして5問取得
+// ワイブルモデル標準値
+const alpha = 1.0;
+const beta = 2.0;
+
+let quizWords = [];
+let current = 0;
+let answers = [];
+
+// ランダムに5問取得（重複なし）
 function getRandomWords(n) {
     let shuffled = [...words].sort(() => 0.5 - Math.random());
     return shuffled.slice(0, n);
 }
 
-let quizWords = getRandomWords(5);
-let current = 0;
-let correctCount = 0;
+// スタート
+function startQuiz() {
+    document.getElementById("startScreen").style.display = "none";
+    quizWords = getRandomWords(5);
+    current = 0;
+    answers = [];
+    showQuestion();
+}
 
-// 初期パラメータ
-const alpha = 1.0;
-const beta = 2.0;
-
+// 1問表示
 function showQuestion() {
     if(current >= quizWords.length){
-        showResult();
+        showSummary();
         return;
     }
-    let q = quizWords[current];
+    const q = quizWords[current];
     document.getElementById("quiz").innerHTML = `
         <div>問題 ${current+1}: ${q.eng}</div>
         <input type="text" id="answer" placeholder="日本語を入力">
-        <button onclick="checkAnswer()">回答</button>
+        <button onclick="checkAnswer()">送信</button>
     `;
 }
 
+// 回答チェック
 function checkAnswer() {
-    let userAns = document.getElementById("answer").value.trim();
-    let correctAns = quizWords[current].jap;
-    let resDiv = document.getElementById("result");
-    if(userAns === correctAns){
-        correctCount++;
-        resDiv.innerHTML = `正解！答え: ${correctAns}`;
-    } else {
-        resDiv.innerHTML = `不正解。答え: ${correctAns}`;
-    }
-    current++;
-    setTimeout(() => {
-        resDiv.innerHTML = "";
-        showQuestion();
-    }, 1000);
+    const userAns = document.getElementById("answer").value.trim();
+    const correctAns = quizWords[current].jap;
+    const resDiv = document.getElementById("result");
+    let correct = userAns === correctAns;
+    answers.push({eng: quizWords[current].eng, correctAns: correctAns, userAns: userAns, correct: correct});
+    resDiv.innerHTML = correct ? `正解！答え: ${correctAns}` : `不正解。答え: ${correctAns}`;
+    document.getElementById("quiz").innerHTML = `<button onclick="nextQuestion()">次へ</button>`;
 }
 
-// ワイブル次回学習日計算
-function calcNextDay(R) {
-    return beta * Math.pow(-Math.log(R), 1/alpha);
+// 次の問題へ
+function nextQuestion() {
+    current++;
+    document.getElementById("result").innerHTML = "";
+    showQuestion();
+}
+
+// まとめ表示
+function showSummary() {
+    document.getElementById("quiz").innerHTML = "";
+    const totalCorrect = answers.filter(a=>a.correct).length;
+    const Rstar = totalCorrect/answers.length;
+    const tNext = beta * Math.pow(-Math.log(Rstar), 1/alpha);
+
+    let html = `<h2>結果まとめ</h2>
+    <table>
+        <tr><th>問題</th><th>あなたの答え</th><th>正答</th><th>正誤</th></tr>`;
+    answers.forEach(a => {
+        html += `<tr>
+            <td>${a.eng}</td>
+            <td>${a.userAns}</td>
+            <td>${a.correctAns}</td>
+            <td>${a.correct ? "〇" : "×"}</td>
+        </tr>`;
+    });
+    html += `</table>`;
+    html += `<p>正答数: ${totalCorrect} / ${answers.length}</p>`;
+    html += `<p>次回学習日: ${tNext.toFixed(2)} 日後</p>`;
+    document.getElementById("summary").innerHTML = html;
+
+    drawChart();
 }
 
 // 忘却曲線描画
-function drawChart(R) {
+function drawChart() {
     const ctx = document.getElementById('forgetChart').getContext('2d');
-    let tVals = Array.from({length: 50}, (_, i) => i*0.1);
-    let Rvals = tVals.map(t => Math.exp(-(t/beta)**alpha));
-
+    const tVals = Array.from({length: 50}, (_, i) => i*0.1);
+    const Rvals = tVals.map(t => Math.exp(-(t/beta)**alpha));
     new Chart(ctx, {
         type: 'line',
         data: {
@@ -98,4 +142,20 @@ function drawChart(R) {
             datasets: [{
                 label: '忘却曲線',
                 data: Rvals,
-                borderColor:
+                borderColor: 'blue',
+                fill: false
+            }]
+        },
+        options: {
+            responsive: true,
+            scales: {
+                x: { title: { display: true, text: '経過時間 t' } },
+                y: { title: { display: true, text: '記憶保持率 R(t)' }, min:0, max:1 }
+            }
+        }
+    });
+}
+</script>
+
+</body>
+</html>
