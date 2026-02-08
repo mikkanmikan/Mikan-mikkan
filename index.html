@@ -5,143 +5,196 @@
 <title>英単語学習アプリ + Weibullモデル</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
-body { font-family: sans-serif; margin: 20px; }
-button { margin-top: 10px; padding: 5px 10px; }
-input { margin-top: 5px; padding: 3px; }
-.screen { display: none; text-align:center; padding:50px; }
-#startScreen { display:block; background:#eef; cursor:pointer; }
-table { border-collapse: collapse; width: 80%; margin: 0 auto; }
-th, td { border:1px solid #333; padding:5px; text-align:center; }
+  body { font-family: sans-serif; margin: 20px; }
+  .screen { display: none; }
+  #startScreen, #quizScreen, #summaryScreen { padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
+  button { margin-top: 10px; padding: 5px 10px; cursor: pointer; }
+  #quizScreen input { padding: 5px; width: 200px; }
+  table { border-collapse: collapse; margin-top: 10px; }
+  th, td { border: 1px solid #ccc; padding: 5px 10px; }
 </style>
 </head>
 <body>
 
-<h1>英単語学習アプリ</h1>
-
-<div id="startScreen" class="screen">
+<!-- スタート画面 -->
+<div id="startScreen" class="screen" style="display:block;">
   <h2>ここをクリックしてスタート</h2>
-  <p>画面またはボタンをクリックすると開始</p>
-  <button id="startBtn">スタート</button>
+  <button id="startButton">スタート</button>
 </div>
 
+<!-- 問題画面 -->
 <div id="quizScreen" class="screen">
-  <div id="quiz"></div>
-  <div id="result"></div>
+  <h2 id="quizWord">英単語</h2>
+  <input type="text" id="userAnswer" placeholder="日本語を入力">
+  <button id="submitAnswer">送信</button>
+  <p id="feedback"></p>
+  <button id="nextQuestion" style="display:none;">次へ</button>
 </div>
 
+<!-- まとめ画面 -->
 <div id="summaryScreen" class="screen">
-  <div id="summary"></div>
-  <canvas id="forgetChart"></canvas>
+  <h2>まとめ</h2>
+  <p id="score"></p>
+  <p id="nextDate"></p>
+  <table id="resultTable">
+    <thead>
+      <tr>
+        <th>英単語</th>
+        <th>あなたの答え</th>
+        <th>正答</th>
+        <th>正誤</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <canvas id="forgetChart" width="400" height="200"></canvas>
 </div>
 
 <script>
-// 50題の難単語
-const words = [
-{eng:"ephemeral", jap:"はかない"}, {eng:"obfuscate", jap:"わかりにくくする"}, {eng:"quintessential", jap:"典型的な"},
-{eng:"juxtaposition", jap:"並置"}, {eng:"ubiquitous", jap:"偏在する"}, {eng:"serendipity", jap:"偶然の幸運"},
-{eng:"cogent", jap:"説得力のある"}, {eng:"antediluvian", jap:"太古の"}, {eng:"magnanimous", jap:"寛大な"},
-{eng:"perfunctory", jap:"おざなりの"}, {eng:"obsequious", jap:"へつらいの"}, {eng:"esoteric", jap:"難解な"},
-{eng:"loquacious", jap:"おしゃべりな"}, {eng:"epistolary", jap:"書簡体の"}, {eng:"callipygian", jap:"美尻の"},
-{eng:"lachrymose", jap:"涙もろい"}, {eng:"pulchritude", jap:"美しさ"}, {eng:"sycophant", jap:"おべっか使い"},
-{eng:"vituperate", jap:"非難する"}, {eng:"inchoate", jap:"未発達の"}, {eng:"pugnacious", jap:"好戦的な"},
-{eng:"recalcitrant", jap:"反抗的な"}, {eng:"sagacious", jap:"賢明な"}, {eng:"tenebrous", jap:"暗い"},
-{eng:"taciturn", jap:"無口な"}, {eng:"vociferous", jap:"声高な"}, {eng:"xenophobic", jap:"外国人嫌いの"}, 
-{eng:"zephyr", jap:"そよ風"}, {eng:"abstruse", jap:"難解な"}, {eng:"blandishment", jap:"お世辞"}, 
-{eng:"cacophony", jap:"不協和音"}, {eng:"diaphanous", jap:"透ける"}, {eng:"euphemism", jap:"婉曲表現"},
-{eng:"fastidious", jap:"気難しい"}, {eng:"grandiloquent", jap:"大げさな"}, {eng:"heterogeneous", jap:"異種の"},
-{eng:"ignominious", jap:"不名誉な"}, {eng:"juxtapose", jap:"並置する"}, {eng:"kaleidoscopic", jap:"万華鏡のような"},
-{eng:"munificent", jap:"気前の良い"}, {eng:"nefarious", jap:"極悪な"}, {eng:"obstreperous", jap:"騒々しい"},
-{eng:"parsimonious", jap:"けちな"}, {eng:"quixotic", jap:"非現実的な"}, {eng:"soporific", jap:"催眠性の"},
-{eng:"tacit", jap:"暗黙の"}, {eng:"umbrageous", jap:"日陰の"}, {eng:"vicarious", jap:"代理の"}
-];
-
-// Weibullモデル標準値
 const alpha = 1.0;
 const beta = 2.0;
+const totalQuestions = 5;
 
-let quizWords=[], current=0, answers=[];
+// 難しい英単語リスト
+const wordList = [
+  {eng:"obfuscate", jp:"わかりにくくする"},
+  {eng:"pulchritude", jp:"美しさ"},
+  {eng:"abrogate", jp:"廃止する"},
+  {eng:"lachrymose", jp:"涙もろい"},
+  {eng:"recalcitrant", jp:"反抗的な"},
+  {eng:"sesquipedalian", jp:"長ったらしい言葉を使う"},
+  {eng:"antediluvian", jp:"非常に古い"},
+  {eng:"effulgent", jp:"輝かしい"},
+  {eng:"insouciant", jp:"無頓着な"},
+  {eng:"perfidious", jp:"裏切りの"},
+  {eng:"ephemeral", jp:"儚い"},
+  {eng:"mellifluous", jp:"甘美な"},
+  {eng:"pulverize", jp:"粉砕する"},
+  {eng:"obstreperous", jp:"騒々しい"},
+  {eng:"vicissitude", jp:"変遷"},
+  {eng:"apocryphal", jp:"偽の"},
+  {eng:"cogent", jp:"説得力のある"},
+  {eng:"demagogue", jp:"扇動政治家"},
+  {eng:"exacerbate", jp:"悪化させる"},
+  {eng:"quixotic", jp:"非現実的な"}
+];
 
-// ランダム取得
-function getRandomWords(n){
-  let shuffled = [...words].sort(()=>0.5-Math.random());
-  return shuffled.slice(0,n);
-}
-
-// DOMロード後イベント
-document.addEventListener("DOMContentLoaded", ()=>{
-  const startBtn = document.getElementById("startBtn");
-  const startScreen = document.getElementById("startScreen");
-  startScreen.addEventListener("click", startQuiz);
-  startBtn.addEventListener("click", startQuiz);
-});
+// 状態管理
+let quizWords = [];
+let current = 0;
+let answers = [];
 
 // スタート
-function startQuiz(){
-  document.getElementById("startScreen").style.display="none";
-  document.getElementById("quizScreen").style.display="block";
-  quizWords = getRandomWords(5);
-  current = 0; answers=[];
+function startQuiz() {
+  document.getElementById('startScreen').style.display = 'none';
+  document.getElementById('quizScreen').style.display = 'block';
+
+  // ランダムに5問抽出
+  quizWords = [];
+  const tempList = [...wordList];
+  for(let i=0; i<totalQuestions; i++){
+    const idx = Math.floor(Math.random() * tempList.length);
+    quizWords.push(tempList.splice(idx,1)[0]);
+  }
+
+  current = 0;
+  answers = [];
   showQuestion();
 }
 
-// 1問表示
-function showQuestion(){
-  if(current>=quizWords.length){ showSummary(); return; }
+// 問題表示
+function showQuestion() {
   const q = quizWords[current];
-  const quizDiv = document.getElementById("quiz");
-  quizDiv.innerHTML = `
-    <div>問題 ${current+1}: ${q.eng}</div>
-    <input type="text" id="answer" placeholder="日本語を入力">
-    <button id="submitBtn">送信</button>
-  `;
-  document.getElementById("submitBtn").addEventListener("click", checkAnswer);
+  document.getElementById('quizWord').textContent = q.eng;
+  document.getElementById('userAnswer').value = '';
+  document.getElementById('feedback').textContent = '';
+  document.getElementById('nextQuestion').style.display = 'none';
+  document.getElementById('userAnswer').focus();
 }
 
-// 回答チェック
-function checkAnswer(){
-  const userAns = document.getElementById("answer").value.trim();
-  const correctAns = quizWords[current].jap;
-  answers.push({eng: quizWords[current].eng, correctAns, userAns, correct:userAns===correctAns});
-  document.getElementById("result").innerHTML = userAns===correctAns?`正解！答え: ${correctAns}`:`不正解。答え: ${correctAns}`;
-  document.getElementById("quiz").innerHTML = `<button id="nextBtn">次へ</button>`;
-  document.getElementById("nextBtn").addEventListener("click", nextQuestion);
+// 送信判定
+function submitAnswer() {
+  const userAns = document.getElementById('userAnswer').value.trim();
+  const correctAns = quizWords[current].jp;
+  let isCorrect = (userAns === correctAns);
+  document.getElementById('feedback').textContent = 
+    isCorrect ? `正解！答え: ${correctAns}` : `不正解。答え: ${correctAns}`;
+  answers.push({word:quizWords[current].eng, user:userAns, correct:correctAns, correctFlag:isCorrect});
+  document.getElementById('nextQuestion').style.display = 'inline-block';
 }
 
-// 次の問題
-function nextQuestion(){
+// 次へ
+function nextQuestion() {
   current++;
-  document.getElementById("result").innerHTML="";
-  showQuestion();
+  if(current < totalQuestions){
+    showQuestion();
+  } else {
+    showSummary();
+  }
 }
 
-// まとめ表示
-function showSummary(){
-  document.getElementById("quizScreen").style.display="none";
-  document.getElementById("summaryScreen").style.display="block";
-  const totalCorrect = answers.filter(a=>a.correct).length;
-  const Rstar = totalCorrect/answers.length;
-  const tNext = beta * Math.pow(-Math.log(Rstar),1/alpha);
+// まとめ画面表示
+function showSummary() {
+  document.getElementById('quizScreen').style.display = 'none';
+  document.getElementById('summaryScreen').style.display = 'block';
 
-  let html = `<h2>結果まとめ</h2><table><tr><th>問題</th><th>あなたの答え</th><th>正答</th><th>正誤</th></tr>`;
+  const correctCount = answers.filter(a=>a.correctFlag).length;
+  document.getElementById('score').textContent = `正答数: ${correctCount}/${totalQuestions}`;
+
+  // 次回学習日計算（ワイブルモデル）
+  const R = correctCount / totalQuestions;
+  const tNext = Math.round(beta * Math.pow(-Math.log(R || 0.01), 1/alpha)); // R=0対策
+  document.getElementById('nextDate').textContent = `次回学習日: ${tNext}日後`;
+
+  // 表作成
+  const tbody = document.querySelector('#resultTable tbody');
+  tbody.innerHTML = '';
   answers.forEach(a=>{
-    html+=`<tr><td>${a.eng}</td><td>${a.userAns}</td><td>${a.correctAns}</td><td>${a.correct?"〇":"×"}</td></tr>`;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${a.word}</td><td>${a.user}</td><td>${a.correct}</td><td>${a.correctFlag ? '正解' : '不正解'}</td>`;
+    tbody.appendChild(tr);
   });
-  html+=`</table><p>正答数: ${totalCorrect}/${answers.length}</p><p>次回学習日: ${tNext.toFixed(2)} 日後</p>`;
-  document.getElementById("summary").innerHTML = html;
-  drawChart();
+
+  // 忘却曲線描画
+  const ctx = document.getElementById('forgetChart').getContext('2d');
+  const labels = [];
+  const data = [];
+  for(let t=0; t<=tNext*2; t++){
+    labels.push(t);
+    data.push(Math.exp(-Math.pow(t/beta, alpha)));
+  }
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: labels,
+      datasets: [{
+        label: '忘却曲線 R(t)',
+        data: data,
+        borderColor: 'blue',
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        x: { title: { display:true, text:'日数' } },
+        y: { title: { display:true, text:'記憶保持率' }, min:0, max:1 }
+      }
+    }
+  });
 }
 
-// 忘却曲線描画
-function drawChart(){
-  const ctx = document.getElementById('forgetChart').getContext('2d');
-  const tVals = Array.from({length:50},(_,i)=>i*0.1);
-  const Rvals = tVals.map(t=>Math.exp(-(t/beta)**alpha));
-  new Chart(ctx,{
-    type:'line',
-    data:{labels:tVals,datasets:[{label:'忘却曲線',data:Rvals,borderColor:'blue',fill:false}]},
-    options:{responsive:true,scales:{x:{title:{display:true,text:'経過時間 t'}},y:{title:{display:true,text:'記憶保持率 R(t)'},min:0,max:1}}}
-  });
-}
+// イベント紐付け
+document.getElementById('startButton').addEventListener('click', startQuiz);
+document.getElementById('startScreen').addEventListener('click', startQuiz);
+document.getElementById('submitAnswer').addEventListener('click', submitAnswer);
+document.getElementById('nextQuestion').addEventListener('click', nextQuestion);
+
+// Enterキーでも送信可能
+document.getElementById('userAnswer').addEventListener('keydown', e=>{
+  if(e.key==='Enter') submitAnswer();
+});
 </script>
+
 </body>
 </html>
