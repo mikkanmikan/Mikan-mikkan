@@ -55,7 +55,7 @@ const alpha = 1.0;
 const beta = 2.0;
 const totalQuestions = 5;
 
-// 難しい英単語リスト（必要に応じて増やせます）
+// 難しい英単語リスト
 const wordList = [
   {eng:"obfuscate", jp:"わかりにくくする"},
   {eng:"pulchritude", jp:"美しさ"},
@@ -143,8 +143,18 @@ function showSummary() {
 
   // 次回学習日計算（記憶保持率 0.9 を下回るタイミング）
   const threshold = 0.9;
-  const tNext = Math.round(beta * Math.pow(-Math.log(threshold), 1/alpha));
-  document.getElementById('nextDate').textContent = `次回学習日: ${tNext}日後`;
+  const tNext = beta * Math.pow(-Math.log(threshold), 1/alpha); // 小数日
+  const hours = Math.round(tNext * 24);
+
+  let nextText = '';
+  if(tNext < 1){
+    nextText = `${hours}時間後`;
+  } else if(tNext === 1){
+    nextText = `1日後`;
+  } else {
+    nextText = `${tNext.toFixed(1)}日後 (${hours}時間後)`;
+  }
+  document.getElementById('nextDate').textContent = `次回学習: ${nextText}`;
 
   // 表作成
   const tbody = document.querySelector('#resultTable tbody');
@@ -159,8 +169,8 @@ function showSummary() {
   const ctx = document.getElementById('forgetChart').getContext('2d');
   const labels = [];
   const data = [];
-  for(let t=0; t<=tNext*2; t++){
-    labels.push(t);
+  for(let t=0; t<=tNext*2; t+=0.1){
+    labels.push(t.toFixed(1));
     data.push(Math.exp(-Math.pow(t/beta, alpha)));
   }
   new Chart(ctx, {
@@ -177,7 +187,7 @@ function showSummary() {
     options: {
       responsive: true,
       scales: {
-        x: { title: { display:true, text:'日数' } },
+        x: { title: { display:true, text:'日数' }, min:0 },
         y: { title: { display:true, text:'記憶保持率' }, min:0, max:1 }
       }
     }
