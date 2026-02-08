@@ -55,7 +55,7 @@ const alpha = 1.0;
 const beta = 2.0;
 const totalQuestions = 5;
 
-// 難しい英単語リスト
+// 難しい英単語リスト（必要に応じて増やせます）
 const wordList = [
   {eng:"obfuscate", jp:"わかりにくくする"},
   {eng:"pulchritude", jp:"美しさ"},
@@ -89,7 +89,7 @@ function startQuiz() {
   document.getElementById('startScreen').style.display = 'none';
   document.getElementById('quizScreen').style.display = 'block';
 
-  // ランダムに5問抽出
+  // ランダムに5問抽出（重複なし）
   quizWords = [];
   const tempList = [...wordList];
   for(let i=0; i<totalQuestions; i++){
@@ -116,7 +116,7 @@ function showQuestion() {
 function submitAnswer() {
   const userAns = document.getElementById('userAnswer').value.trim();
   const correctAns = quizWords[current].jp;
-  let isCorrect = (userAns === correctAns);
+  const isCorrect = (userAns === correctAns);
   document.getElementById('feedback').textContent = 
     isCorrect ? `正解！答え: ${correctAns}` : `不正解。答え: ${correctAns}`;
   answers.push({word:quizWords[current].eng, user:userAns, correct:correctAns, correctFlag:isCorrect});
@@ -141,9 +141,9 @@ function showSummary() {
   const correctCount = answers.filter(a=>a.correctFlag).length;
   document.getElementById('score').textContent = `正答数: ${correctCount}/${totalQuestions}`;
 
-  // 次回学習日計算（ワイブルモデル）
-  const R = correctCount / totalQuestions;
-  const tNext = Math.round(beta * Math.pow(-Math.log(R || 0.01), 1/alpha)); // R=0対策
+  // 次回学習日計算（記憶保持率 0.9 を下回るタイミング）
+  const threshold = 0.9;
+  const tNext = Math.round(beta * Math.pow(-Math.log(threshold), 1/alpha));
   document.getElementById('nextDate').textContent = `次回学習日: ${tNext}日後`;
 
   // 表作成
