@@ -128,13 +128,24 @@ function drawChart() {
   const ctx = document.getElementById('forgetChart').getContext('2d');
   const tVals = Array.from({length:50},(_,i)=>i*0.1);
   const Rvals = tVals.map(t=>Math.exp(-(t/beta)**alpha));
-  new Chart(ctx,{type:'line',data:{labels:tVals,datasets:[{label:'忘却曲線',data:Rvals,borderColor:'blue',fill:false}]},options:{responsive:true,scales:{x:{title:{display:true,text:'経過時間 t'}},y:{title:{display:true,text:'記憶保持率 R(t)'},min:0,max:1}}}});
+  new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:tVals,
+      datasets:[{label:'忘却曲線',data:Rvals,borderColor:'blue',fill:false}]
+    },
+    options:{
+      responsive:true,
+      scales:{
+        x:{title:{display:true,text:'経過時間 t'}},
+        y:{title:{display:true,text:'記憶保持率 R(t)'},min:0,max:1}
+      }
+    }
+  });
 }
 
 // DOM読み込み後イベント
-document.addEventListener("DOMContentLoaded",()=>{
-  document.getElementById("startBtn").addEventListener("click",startQuiz);
-});
+document.getElementById("startBtn").addEventListener("click", startQuiz);
 </script>
 
 </body>
