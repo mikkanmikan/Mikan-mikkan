@@ -6,6 +6,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <style>
 body { font-family: sans-serif; margin: 20px; }
+.clickable { cursor: pointer; text-align: center; padding: 50px; background: #eef; }
 button { margin-top: 10px; padding: 5px 10px; }
 input { margin-top: 5px; padding: 3px; }
 #quiz, #result, #summary, #chartContainer { margin-top: 20px; }
@@ -17,8 +18,9 @@ th, td { border: 1px solid #333; padding: 5px; text-align: center; }
 
 <h1>英単語学習アプリ</h1>
 
-<div id="startScreen">
-  <button onclick="startQuiz()">スタート</button>
+<div id="startScreen" class="clickable">
+  <h2>ここをクリックしてスタート</h2>
+  <p>画面をクリックすると学習開始</p>
 </div>
 
 <div id="quiz"></div>
@@ -63,14 +65,14 @@ function getRandomWords(n) {
     return shuffled.slice(0, n);
 }
 
-// スタート
-function startQuiz() {
+// スタート代替：画面クリック
+document.getElementById("startScreen").addEventListener("click", () => {
     document.getElementById("startScreen").style.display = "none";
     quizWords = getRandomWords(5);
     current = 0;
     answers = [];
     showQuestion();
-}
+});
 
 // 1問表示
 function showQuestion() {
