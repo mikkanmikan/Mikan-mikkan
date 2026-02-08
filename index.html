@@ -20,7 +20,8 @@ th, td { border: 1px solid #333; padding: 5px; text-align: center; }
 
 <div id="startScreen" class="screen" style="display:block;">
   <h2>ここをクリックしてスタート</h2>
-  <button id="startBtn">スタート</button>
+  <!-- 直接 onclick で startQuiz を呼ぶ -->
+  <button onclick="startQuiz()">スタート</button>
 </div>
 
 <div id="quizScreen" class="screen">
@@ -84,9 +85,8 @@ function showQuestion() {
   document.getElementById("quiz").innerHTML = `
     <div>問題 ${current+1}: ${q.eng}</div>
     <input type="text" id="answer" placeholder="日本語を入力">
-    <button id="submitBtn">送信</button>
+    <button onclick="checkAnswer()">送信</button>
   `;
-  document.getElementById("submitBtn").addEventListener("click", checkAnswer);
 }
 
 // 回答チェック
@@ -95,8 +95,7 @@ function checkAnswer() {
   const correctAns = quizWords[current].jap;
   answers.push({eng: quizWords[current].eng, correctAns, userAns, correct: userAns===correctAns});
   document.getElementById("result").innerHTML = userAns===correctAns?`正解！答え: ${correctAns}`:`不正解。答え: ${correctAns}`;
-  document.getElementById("quiz").innerHTML = `<button id="nextBtn">次へ</button>`;
-  document.getElementById("nextBtn").addEventListener("click", nextQuestion);
+  document.getElementById("quiz").innerHTML = `<button onclick="nextQuestion()">次へ</button>`;
 }
 
 // 次の問題
@@ -143,11 +142,6 @@ function drawChart() {
     }
   });
 }
-
-// DOM読み込み後イベント
-document.addEventListener("DOMContentLoaded", ()=>{
-  document.getElementById("startBtn").addEventListener("click", startQuiz);
-});
 </script>
 
 </body>
