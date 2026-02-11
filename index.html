@@ -2,222 +2,176 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>Study Gacha Timer</title>
+<title>ロック付きガチャアプリ</title>
 <style>
-body { margin:0; font-family:sans-serif; background:#111; color:white; }
-.screen { display:none; height:100vh; padding:20px; box-sizing:border-box; }
-
-#startScreen { display:block; }
-#timerScreen, #resultScreen { text-align:center; }
-
-.topGacha {
-  height:60%;
-  border:2px solid #444;
-  padding:10px;
-}
-.bottomStart {
-  height:40%;
-  display:flex;
-  justify-content:center;
-  align-items:center;
+body {
+  font-family: sans-serif;
+  text-align: center;
+  background: #111;
+  color: white;
 }
 
-button { padding:10px 20px; font-size:16px; cursor:pointer; }
-.smallBtn { font-size:12px; position:fixed; bottom:10px; right:10px; }
-
-#gachaCount { position:fixed; top:10px; right:10px; font-size:16px; }
-
-.rainbowBg {
-  background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet);
+#startScreen {
+  margin-top: 50px;
 }
 
-.rainbowText {
-  font-size:50px;
-  font-weight:bold;
-  background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet);
-  -webkit-background-clip:text;
-  color:transparent;
+#gachaArea {
+  font-size: 30px;
+  margin-bottom: 40px;
+}
+
+#startBtn {
+  font-size: 30px;
+  padding: 20px 60px;
+  cursor: pointer;
+}
+
+#resultScreen {
+  position: fixed;
+  top:0; left:0;
+  width:100%; height:100%;
+  background: rgba(0,0,0,0.8);
+  display: none;
+  justify-content: center;
+  align-items: center;
 }
 
 #resultBox {
-  background:#222;
-  padding:40px;
-  border:3px solid white;
-  display:inline-block;
-  position:relative;
+  background: white;
+  color: black;
+  width: 300px;
+  height: 200px;
+  position: relative;
+  padding: 20px;
+  border-radius: 10px;
 }
 
-#closeResult {
-  position:absolute;
-  top:5px;
-  right:5px;
-  font-size:20px;
-  cursor:pointer;
+#closeBtn {
+  position: absolute;
+  top: 5px;
+  right: 10px;
+  font-size: 20px;
+  cursor: pointer;
 }
 
-#lockTimer {
-  font-size:30px;
-  margin-top:20px;
+.rainbow {
+  font-size: 40px;
+  font-weight: bold;
+  background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue, purple);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+#timer, #count {
+  font-size: 20px;
+  margin-top: 20px;
 }
 </style>
 </head>
 
 <body>
 
-<div id="gachaCount">Gacha: 0</div>
-<button class="smallBtn" id="probBtn">確率</button>
-
 <!-- スタート画面 -->
-<div id="startScreen" class="screen">
-  <div class="topGacha">
-    <h2>ガチャエリア</h2>
-    <button id="rollBtn">ガチャを回す</button>
-    <div id="log"></div>
-  </div>
-  <div class="bottomStart">
-    <button id="startBtn">タイマースタート</button>
-  </div>
+<div id="startScreen">
+  <div id="gachaArea">🎰 ガチャ画面</div>
+  <button id="startBtn">START</button>
 </div>
 
-<!-- タイマー画面 -->
-<div id="timerScreen" class="screen">
-  <h1 id="timerDisplay">05:00</h1>
-</div>
-
-<!-- ガチャ結果画面 -->
-<div id="resultScreen" class="screen">
+<!-- 結果画面 -->
+<div id="resultScreen">
   <div id="resultBox">
-    <div id="closeResult">×</div>
-    <div id="rarityText" class="rainbowText">N</div>
-    <p id="resultMsg"></p>
-    <div id="lockTimer"></div>
+    <div id="closeBtn">×</div>
+    <div id="rankText" class="rainbow"></div>
+    <p id="effectText"></p>
   </div>
 </div>
+
+<p id="timer">待機中</p>
+<p id="count">回数: 0</p>
 
 <script>
-// ================= 状態管理 =================
-let state = "IDLE"; // IDLE, FOCUS, RESULT, LOCK
-let firstSession = true;
-let timerInterval, lockInterval;
-let gachaCount = 0;
-let rainbowUnlocked = false;
+let count = 0;
+let locked = false;
+let timerInterval;
 
-// ================= 確率 =================
-const gachaTable = [
-  {name:"Lucky", p:0.001, lock:60, msg:"スーパーレア！1000回に1回の奇跡だ！とりあえず１時間休憩だ"},
-  {name:"UR", p:0.02, lock:20, msg:"よくやった、努力の成果だ！20分休憩としよう。休憩は絶対！"},
-  {name:"SR", p:0.18, lock:10, msg:"お疲れ様です！一度、10分休憩を取ろう"},
-  {name:"R", p:0.35, lock:5, msg:"おつかれさま！１０時間勉強、一瞬で乗り切れる！5分休憩！"},
-  {name:"N", p:0.449, lock:5, msg:"おつかれ！ペース上げていこう！やる気出てきた！！楽勝、余裕！5分休憩！"}
+const startBtn = document.getElementById("startBtn");
+const startScreen = document.getElementById("startScreen");
+const resultScreen = document.getElementById("resultScreen");
+const rankText = document.getElementById("rankText");
+const effectText = document.getElementById("effectText");
+const timerDisplay = document.getElementById("timer");
+const countDisplay = document.getElementById("count");
+const closeBtn = document.getElementById("closeBtn");
+
+// ガチャ確率（自由に調整可）
+const ranks = [
+  {name:"N", time:300, prob:0.4},
+  {name:"R", time:300, prob:0.3},
+  {name:"SR", time:600, prob:0.2},
+  {name:"UR", time:1200, prob:0.09},
+  {name:"ラッキーデー！", time:3600, prob:0.01}
 ];
 
-// ================= 画面切替 =================
-function show(screen){
-  document.querySelectorAll(".screen").forEach(s=>s.style.display="none");
-  document.getElementById(screen).style.display="block";
-}
+// スタートボタン
+startBtn.addEventListener("click", () => {
+  if (locked) return;
+  count++;
+  countDisplay.textContent = "回数: " + count;
+  startGacha();
+});
 
-// ================= タイマー =================
-function startTimer(minutes){
-  state="FOCUS";
-  show("timerScreen");
-  let time = minutes*60;
-  updateTimer(time);
-  timerInterval = setInterval(()=>{
-    time--;
-    updateTimer(time);
-    if(time<=0){
-      clearInterval(timerInterval);
-      endSession();
-    }
-  },1000);
-}
-
-function updateTimer(t){
-  let m = String(Math.floor(t/60)).padStart(2,"0");
-  let s = String(t%60).padStart(2,"0");
-  document.getElementById("timerDisplay").textContent = `${m}:${s}`;
-}
-
-// ================= セッション終了 =================
-function endSession(){
-  gachaCount++;
-  updateGachaCount();
-  rainbowUnlocked = true;
-  document.body.classList.add("rainbowBg");
-  show("startScreen");
-  state="IDLE";
-}
-
-// ================= ガチャ =================
-function rollGacha(){
-  if(gachaCount<=0 || state!=="IDLE") return;
-  gachaCount--;
-  updateGachaCount();
-
+// ガチャ抽選
+function startGacha() {
   let r = Math.random();
   let sum = 0;
   let result;
-  for(let g of gachaTable){
-    sum += g.p;
-    if(r < sum){ result=g; break; }
-  }
-  showResult(result);
-}
 
-// ================= ガチャ結果表示 =================
-function showResult(result){
-  state="RESULT";
-  show("resultScreen");
-  document.getElementById("rarityText").textContent = result.name;
-  document.getElementById("resultMsg").textContent = result.msg;
-  startLock(result.lock);
-}
-
-// ================= ロック =================
-function startLock(minutes){
-  let t = minutes*60;
-  document.getElementById("lockTimer").textContent = `ロック: ${minutes}:00`;
-  lockInterval = setInterval(()=>{
-    t--;
-    let m = String(Math.floor(t/60)).padStart(2,"0");
-    let s = String(t%60).padStart(2,"0");
-    document.getElementById("lockTimer").textContent = `ロック: ${m}:${s}`;
-    if(t<=0){
-      clearInterval(lockInterval);
-      state="IDLE";
-      show("startScreen");
+  for (let g of ranks) {
+    sum += g.prob;
+    if (r < sum) {
+      result = g;
+      break;
     }
-  },1000);
+  }
+
+  rankText.textContent = result.name;
+  effectText.textContent = `ロック ${result.time/60} 分`;
+
+  // 画面切替
+  startScreen.style.display = "none";
+  resultScreen.style.display = "flex";
+
+  locked = true;
+  startBtn.disabled = true;
+
+  startTimer(result.time);
 }
 
-// ================= UI更新 =================
-function updateGachaCount(){
-  document.getElementById("gachaCount").textContent = "Gacha: " + gachaCount;
+// タイマー
+function startTimer(sec) {
+  clearInterval(timerInterval);
+  let t = sec;
+
+  timerInterval = setInterval(() => {
+    let m = Math.floor(t / 60);
+    let s = t % 60;
+    timerDisplay.textContent = `残り ${m}:${s.toString().padStart(2,"0")}`;
+    t--;
+
+    if (t < 0) {
+      clearInterval(timerInterval);
+      locked = false;
+      startBtn.disabled = false;
+      timerDisplay.textContent = "解放！";
+    }
+  }, 1000);
 }
 
-// ================= 確率表示 =================
-document.getElementById("probBtn").onclick = ()=>{
-  alert("ラッキーデー！...0.1%\nUR...2%\nSR...18%\nR...35%\nN...44.9%");
+// 結果画面閉じる
+closeBtn.onclick = () => {
+  resultScreen.style.display = "none";
+  startScreen.style.display = "block";
 };
-
-// ================= ボタン =================
-document.getElementById("startBtn").onclick = ()=>{
-  if(state!=="IDLE") return;
-  let min = firstSession ? 5 : 25;
-  firstSession=false;
-  startTimer(min);
-};
-
-document.getElementById("rollBtn").onclick = rollGacha;
-
-document.getElementById("closeResult").onclick = ()=>{
-  // ロック中でも閉じられるがスタート不可
-  show("startScreen");
-};
-
-// ================= 初期 =================
-updateGachaCount();
 </script>
 
 </body>
