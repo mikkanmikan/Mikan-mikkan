@@ -2,208 +2,222 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>英単語学習アプリ + Weibullモデル</title>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<title>Study Gacha Timer</title>
 <style>
-  body { font-family: sans-serif; margin: 20px; }
-  .screen { display: none; }
-  #startScreen, #quizScreen, #summaryScreen { padding: 20px; border: 1px solid #ccc; border-radius: 8px; }
-  button { margin-top: 10px; padding: 5px 10px; cursor: pointer; }
-  #quizScreen input { padding: 5px; width: 200px; }
-  table { border-collapse: collapse; margin-top: 10px; }
-  th, td { border: 1px solid #ccc; padding: 5px 10px; }
+body { margin:0; font-family:sans-serif; background:#111; color:white; }
+.screen { display:none; height:100vh; padding:20px; box-sizing:border-box; }
+
+#startScreen { display:block; }
+#timerScreen, #resultScreen { text-align:center; }
+
+.topGacha {
+  height:60%;
+  border:2px solid #444;
+  padding:10px;
+}
+.bottomStart {
+  height:40%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+}
+
+button { padding:10px 20px; font-size:16px; cursor:pointer; }
+.smallBtn { font-size:12px; position:fixed; bottom:10px; right:10px; }
+
+#gachaCount { position:fixed; top:10px; right:10px; font-size:16px; }
+
+.rainbowBg {
+  background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet);
+}
+
+.rainbowText {
+  font-size:50px;
+  font-weight:bold;
+  background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet);
+  -webkit-background-clip:text;
+  color:transparent;
+}
+
+#resultBox {
+  background:#222;
+  padding:40px;
+  border:3px solid white;
+  display:inline-block;
+  position:relative;
+}
+
+#closeResult {
+  position:absolute;
+  top:5px;
+  right:5px;
+  font-size:20px;
+  cursor:pointer;
+}
+
+#lockTimer {
+  font-size:30px;
+  margin-top:20px;
+}
 </style>
 </head>
+
 <body>
 
+<div id="gachaCount">Gacha: 0</div>
+<button class="smallBtn" id="probBtn">確率</button>
+
 <!-- スタート画面 -->
-<div id="startScreen" class="screen" style="display:block;">
-  <h2>ここをクリックしてスタート</h2>
-  <button id="startButton">スタート</button>
+<div id="startScreen" class="screen">
+  <div class="topGacha">
+    <h2>ガチャエリア</h2>
+    <button id="rollBtn">ガチャを回す</button>
+    <div id="log"></div>
+  </div>
+  <div class="bottomStart">
+    <button id="startBtn">タイマースタート</button>
+  </div>
 </div>
 
-<!-- 問題画面 -->
-<div id="quizScreen" class="screen">
-  <h2 id="quizWord">英単語</h2>
-  <input type="text" id="userAnswer" placeholder="日本語を入力">
-  <button id="submitAnswer">送信</button>
-  <p id="feedback"></p>
-  <button id="nextQuestion" style="display:none;">次へ</button>
+<!-- タイマー画面 -->
+<div id="timerScreen" class="screen">
+  <h1 id="timerDisplay">05:00</h1>
 </div>
 
-<!-- まとめ画面 -->
-<div id="summaryScreen" class="screen">
-  <h2>まとめ</h2>
-  <p id="score"></p>
-  <p id="nextDate"></p>
-  <table id="resultTable">
-    <thead>
-      <tr>
-        <th>英単語</th>
-        <th>あなたの答え</th>
-        <th>正答</th>
-        <th>正誤</th>
-      </tr>
-    </thead>
-    <tbody></tbody>
-  </table>
-  <canvas id="forgetChart" width="400" height="200"></canvas>
+<!-- ガチャ結果画面 -->
+<div id="resultScreen" class="screen">
+  <div id="resultBox">
+    <div id="closeResult">×</div>
+    <div id="rarityText" class="rainbowText">N</div>
+    <p id="resultMsg"></p>
+    <div id="lockTimer"></div>
+  </div>
 </div>
 
 <script>
-const alpha = 1.0;
-const beta = 2.0;
-const totalQuestions = 5;
+// ================= 状態管理 =================
+let state = "IDLE"; // IDLE, FOCUS, RESULT, LOCK
+let firstSession = true;
+let timerInterval, lockInterval;
+let gachaCount = 0;
+let rainbowUnlocked = false;
 
-// 難しい英単語リスト
-const wordList = [
-  {eng:"obfuscate", jp:"わかりにくくする"},
-  {eng:"pulchritude", jp:"美しさ"},
-  {eng:"abrogate", jp:"廃止する"},
-  {eng:"lachrymose", jp:"涙もろい"},
-  {eng:"recalcitrant", jp:"反抗的な"},
-  {eng:"sesquipedalian", jp:"長ったらしい言葉を使う"},
-  {eng:"antediluvian", jp:"非常に古い"},
-  {eng:"effulgent", jp:"輝かしい"},
-  {eng:"insouciant", jp:"無頓着な"},
-  {eng:"perfidious", jp:"裏切りの"},
-  {eng:"ephemeral", jp:"儚い"},
-  {eng:"mellifluous", jp:"甘美な"},
-  {eng:"pulverize", jp:"粉砕する"},
-  {eng:"obstreperous", jp:"騒々しい"},
-  {eng:"vicissitude", jp:"変遷"},
-  {eng:"apocryphal", jp:"偽の"},
-  {eng:"cogent", jp:"説得力のある"},
-  {eng:"demagogue", jp:"扇動政治家"},
-  {eng:"exacerbate", jp:"悪化させる"},
-  {eng:"quixotic", jp:"非現実的な"}
+// ================= 確率 =================
+const gachaTable = [
+  {name:"Lucky", p:0.001, lock:60, msg:"スーパーレア！1000回に1回の奇跡だ！とりあえず１時間休憩だ"},
+  {name:"UR", p:0.02, lock:20, msg:"よくやった、努力の成果だ！20分休憩としよう。休憩は絶対！"},
+  {name:"SR", p:0.18, lock:10, msg:"お疲れ様です！一度、10分休憩を取ろう"},
+  {name:"R", p:0.35, lock:5, msg:"おつかれさま！１０時間勉強、一瞬で乗り切れる！5分休憩！"},
+  {name:"N", p:0.449, lock:5, msg:"おつかれ！ペース上げていこう！やる気出てきた！！楽勝、余裕！5分休憩！"}
 ];
 
-// 状態管理
-let quizWords = [];
-let current = 0;
-let answers = [];
-
-// スタート
-function startQuiz() {
-  document.getElementById('startScreen').style.display = 'none';
-  document.getElementById('quizScreen').style.display = 'block';
-
-  // ランダムに5問抽出（重複なし）
-  quizWords = [];
-  const tempList = [...wordList];
-  for(let i=0; i<totalQuestions; i++){
-    const idx = Math.floor(Math.random() * tempList.length);
-    quizWords.push(tempList.splice(idx,1)[0]);
-  }
-
-  current = 0;
-  answers = [];
-  showQuestion();
+// ================= 画面切替 =================
+function show(screen){
+  document.querySelectorAll(".screen").forEach(s=>s.style.display="none");
+  document.getElementById(screen).style.display="block";
 }
 
-// 問題表示
-function showQuestion() {
-  const q = quizWords[current];
-  document.getElementById('quizWord').textContent = q.eng;
-  document.getElementById('userAnswer').value = '';
-  document.getElementById('feedback').textContent = '';
-  document.getElementById('nextQuestion').style.display = 'none';
-  document.getElementById('userAnswer').focus();
-}
-
-// 送信判定
-function submitAnswer() {
-  const userAns = document.getElementById('userAnswer').value.trim();
-  const correctAns = quizWords[current].jp;
-  const isCorrect = (userAns === correctAns);
-  document.getElementById('feedback').textContent = 
-    isCorrect ? `正解！答え: ${correctAns}` : `不正解。答え: ${correctAns}`;
-  answers.push({word:quizWords[current].eng, user:userAns, correct:correctAns, correctFlag:isCorrect});
-  document.getElementById('nextQuestion').style.display = 'inline-block';
-}
-
-// 次へ
-function nextQuestion() {
-  current++;
-  if(current < totalQuestions){
-    showQuestion();
-  } else {
-    showSummary();
-  }
-}
-
-// まとめ画面表示
-function showSummary() {
-  document.getElementById('quizScreen').style.display = 'none';
-  document.getElementById('summaryScreen').style.display = 'block';
-
-  const correctCount = answers.filter(a=>a.correctFlag).length;
-  document.getElementById('score').textContent = `正答数: ${correctCount}/${totalQuestions}`;
-
-  // 次回学習日計算（記憶保持率 0.9 を下回るタイミング）
-  const threshold = 0.9;
-  const tNext = beta * Math.pow(-Math.log(threshold), 1/alpha); // 小数日
-  const hours = Math.round(tNext * 24);
-
-  let nextText = '';
-  if(tNext < 1){
-    nextText = `${hours}時間後`;
-  } else if(tNext === 1){
-    nextText = `1日後`;
-  } else {
-    nextText = `${tNext.toFixed(1)}日後 (${hours}時間後)`;
-  }
-  document.getElementById('nextDate').textContent = `次回学習: ${nextText}`;
-
-  // 表作成
-  const tbody = document.querySelector('#resultTable tbody');
-  tbody.innerHTML = '';
-  answers.forEach(a=>{
-    const tr = document.createElement('tr');
-    tr.innerHTML = `<td>${a.word}</td><td>${a.user}</td><td>${a.correct}</td><td>${a.correctFlag ? '正解' : '不正解'}</td>`;
-    tbody.appendChild(tr);
-  });
-
-  // 忘却曲線描画
-  const ctx = document.getElementById('forgetChart').getContext('2d');
-  const labels = [];
-  const data = [];
-  for(let t=0; t<=tNext*2; t+=0.1){
-    labels.push(t.toFixed(1));
-    data.push(Math.exp(-Math.pow(t/beta, alpha)));
-  }
-  new Chart(ctx, {
-    type: 'line',
-    data: {
-      labels: labels,
-      datasets: [{
-        label: '忘却曲線 R(t)',
-        data: data,
-        borderColor: 'blue',
-        fill: false
-      }]
-    },
-    options: {
-      responsive: true,
-      scales: {
-        x: { title: { display:true, text:'日数' }, min:0 },
-        y: { title: { display:true, text:'記憶保持率' }, min:0, max:1 }
-      }
+// ================= タイマー =================
+function startTimer(minutes){
+  state="FOCUS";
+  show("timerScreen");
+  let time = minutes*60;
+  updateTimer(time);
+  timerInterval = setInterval(()=>{
+    time--;
+    updateTimer(time);
+    if(time<=0){
+      clearInterval(timerInterval);
+      endSession();
     }
-  });
+  },1000);
 }
 
-// イベント紐付け
-document.getElementById('startButton').addEventListener('click', startQuiz);
-document.getElementById('startScreen').addEventListener('click', startQuiz);
-document.getElementById('submitAnswer').addEventListener('click', submitAnswer);
-document.getElementById('nextQuestion').addEventListener('click', nextQuestion);
+function updateTimer(t){
+  let m = String(Math.floor(t/60)).padStart(2,"0");
+  let s = String(t%60).padStart(2,"0");
+  document.getElementById("timerDisplay").textContent = `${m}:${s}`;
+}
 
-// Enterキーでも送信可能
-document.getElementById('userAnswer').addEventListener('keydown', e=>{
-  if(e.key==='Enter') submitAnswer();
-});
+// ================= セッション終了 =================
+function endSession(){
+  gachaCount++;
+  updateGachaCount();
+  rainbowUnlocked = true;
+  document.body.classList.add("rainbowBg");
+  show("startScreen");
+  state="IDLE";
+}
+
+// ================= ガチャ =================
+function rollGacha(){
+  if(gachaCount<=0 || state!=="IDLE") return;
+  gachaCount--;
+  updateGachaCount();
+
+  let r = Math.random();
+  let sum = 0;
+  let result;
+  for(let g of gachaTable){
+    sum += g.p;
+    if(r < sum){ result=g; break; }
+  }
+  showResult(result);
+}
+
+// ================= ガチャ結果表示 =================
+function showResult(result){
+  state="RESULT";
+  show("resultScreen");
+  document.getElementById("rarityText").textContent = result.name;
+  document.getElementById("resultMsg").textContent = result.msg;
+  startLock(result.lock);
+}
+
+// ================= ロック =================
+function startLock(minutes){
+  let t = minutes*60;
+  document.getElementById("lockTimer").textContent = `ロック: ${minutes}:00`;
+  lockInterval = setInterval(()=>{
+    t--;
+    let m = String(Math.floor(t/60)).padStart(2,"0");
+    let s = String(t%60).padStart(2,"0");
+    document.getElementById("lockTimer").textContent = `ロック: ${m}:${s}`;
+    if(t<=0){
+      clearInterval(lockInterval);
+      state="IDLE";
+      show("startScreen");
+    }
+  },1000);
+}
+
+// ================= UI更新 =================
+function updateGachaCount(){
+  document.getElementById("gachaCount").textContent = "Gacha: " + gachaCount;
+}
+
+// ================= 確率表示 =================
+document.getElementById("probBtn").onclick = ()=>{
+  alert("ラッキーデー！...0.1%\nUR...2%\nSR...18%\nR...35%\nN...44.9%");
+};
+
+// ================= ボタン =================
+document.getElementById("startBtn").onclick = ()=>{
+  if(state!=="IDLE") return;
+  let min = firstSession ? 5 : 25;
+  firstSession=false;
+  startTimer(min);
+};
+
+document.getElementById("rollBtn").onclick = rollGacha;
+
+document.getElementById("closeResult").onclick = ()=>{
+  // ロック中でも閉じられるがスタート不可
+  show("startScreen");
+};
+
+// ================= 初期 =================
+updateGachaCount();
 </script>
 
 </body>
