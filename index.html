@@ -3,7 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <title>Study Gacha Timer</title>
-
 <style>
 body { margin:0; font-family:sans-serif; background:#111; color:white; }
 .screen { display:none; height:100vh; padding:20px; box-sizing:border-box; }
@@ -33,7 +32,7 @@ button { padding:10px 20px; font-size:16px; cursor:pointer; }
 }
 
 .rainbowText {
-  font-size:80px;
+  font-size:50px;
   font-weight:bold;
   background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet);
   -webkit-background-clip:text;
@@ -52,12 +51,12 @@ button { padding:10px 20px; font-size:16px; cursor:pointer; }
   position:absolute;
   top:5px;
   right:5px;
-  font-size:25px;
+  font-size:20px;
   cursor:pointer;
 }
 
 #lockTimer {
-  font-size:25px;
+  font-size:30px;
   margin-top:20px;
 }
 </style>
@@ -73,6 +72,7 @@ button { padding:10px 20px; font-size:16px; cursor:pointer; }
   <div class="topGacha">
     <h2>ガチャエリア</h2>
     <button id="rollBtn">ガチャを回す</button>
+    <div id="log"></div>
   </div>
   <div class="bottomStart">
     <button id="startBtn">タイマースタート</button>
@@ -101,13 +101,38 @@ let firstSession = true;
 let timerInterval, lockInterval;
 let gachaCount = 0;
 
-// ================= 確率テーブル =================
+// ================= ガチャ確率 + 新メッセージ =================
 const gachaTable = [
-  {name:"Lucky", p:0.001, lock:60, msg:"スーパーレア！1000回に1回の奇跡だ！とりあえず１時間休憩だ"},
-  {name:"UR", p:0.02, lock:20, msg:"よくやった、努力の成果だ！20分休憩としよう。休憩は絶対！"},
-  {name:"SR", p:0.18, lock:10, msg:"お疲れ様です！一度、10分休憩を取ろう"},
-  {name:"R", p:0.35, lock:5, msg:"おつかれさま！１０時間勉強、一瞬で乗り切れる！5分休憩！"},
-  {name:"N", p:0.449, lock:5, msg:"おつかれ！ペース上げていこう！やる気出てきた！！楽勝、余裕！5分休憩！"}
+  {
+    name:"Lucky",
+    p:0.001,
+    lock:60,
+    msg:"スーパーレア！1000回に1回の奇跡だ！今日の集中力は限界突破。1時間しっかり休憩して脳を再起動しよう。"
+  },
+  {
+    name:"UR",
+    p:0.02,
+    lock:20,
+    msg:"よくやった。努力が結果になったな。20分休憩して次の学習に備えよう。休憩は戦略だ。"
+  },
+  {
+    name:"SR",
+    p:0.18,
+    lock:10,
+    msg:"お疲れ様。十分集中できている。10分休憩で脳をリフレッシュしよう。"
+  },
+  {
+    name:"R",
+    p:0.35,
+    lock:5,
+    msg:"おつかれさま。継続は力だ。5分だけ休憩してすぐ戻ろう。"
+  },
+  {
+    name:"N",
+    p:0.449,
+    lock:5,
+    msg:"おつかれ！ペースは悪くない。5分休憩してリズムを上げよう。次はレアを狙える。"
+  }
 ];
 
 // ================= 画面切替 =================
@@ -116,14 +141,12 @@ function show(screen){
   document.getElementById(screen).style.display="block";
 }
 
-// ================= 勉強タイマー =================
+// ================= タイマー =================
 function startTimer(minutes){
   state="FOCUS";
   show("timerScreen");
   let time = minutes*60;
   updateTimer(time);
-
-  clearInterval(timerInterval);
   timerInterval = setInterval(()=>{
     time--;
     updateTimer(time);
@@ -140,7 +163,7 @@ function updateTimer(t){
   document.getElementById("timerDisplay").textContent = `${m}:${s}`;
 }
 
-// ================= 勉強終了 =================
+// ================= セッション終了 =================
 function endSession(){
   gachaCount++;
   updateGachaCount();
@@ -149,7 +172,7 @@ function endSession(){
   state="IDLE";
 }
 
-// ================= ガチャ抽選 =================
+// ================= ガチャ =================
 function rollGacha(){
   if(gachaCount<=0 || state!=="IDLE") return;
   gachaCount--;
@@ -162,102 +185,56 @@ function rollGacha(){
     sum += g.p;
     if(r < sum){ result=g; break; }
   }
-  playGachaAnimation(result);
+  showResult(result);
 }
 
-// ================= ガチャ演出 =================
-function playGachaAnimation(result){
-  state="RESULT";
-
-  const overlay = document.createElement("div");
-  overlay.style = `
-    position:fixed; inset:0; background:black;
-    display:flex; justify-content:center; align-items:center;
-    font-size:120px; font-weight:bold; color:white;
-    z-index:9999;
-  `;
-  overlay.textContent="抽選中...";
-  document.body.appendChild(overlay);
-
-  // 1.5秒後 レア表示
-  setTimeout(()=>{
-    overlay.textContent=result.name;
-    overlay.classList.add("rainbowText");
-  },1500);
-
-  // 2.5秒後 フラッシュ
-  setTimeout(()=>{
-    overlay.style.background="white";
-    overlay.style.color="black";
-  },2500);
-
-  // 3秒後 結果画面へ
-  setTimeout(()=>{
-    overlay.remove();
-    showResult(result);
-  },3000);
-}
-
-// ================= 結果画面 =================
+// ================= ガチャ結果表示 =================
 function showResult(result){
+  state="RESULT";
   show("resultScreen");
-  document.getElementById("rarityText").textContent=result.name;
-  document.getElementById("resultMsg").textContent=result.msg;
+  document.getElementById("rarityText").textContent = result.name;
+  document.getElementById("resultMsg").textContent = result.msg;
   startLock(result.lock);
 }
 
-// ================= ×ロック =================
+// ================= ロック =================
 function startLock(minutes){
-  state="LOCK";
-  const closeBtn=document.getElementById("closeResult");
-  closeBtn.style.pointerEvents="none";
-  closeBtn.style.opacity=0.3;
-
-  let t=minutes*60;
-  updateLock(t);
-
-  clearInterval(lockInterval);
-  lockInterval=setInterval(()=>{
+  let t = minutes*60;
+  document.getElementById("lockTimer").textContent = `ロック: ${minutes}:00`;
+  lockInterval = setInterval(()=>{
     t--;
-    updateLock(t);
+    let m = String(Math.floor(t/60)).padStart(2,"0");
+    let s = String(t%60).padStart(2,"0");
+    document.getElementById("lockTimer").textContent = `ロック: ${m}:${s}`;
     if(t<=0){
       clearInterval(lockInterval);
       state="IDLE";
-      closeBtn.style.pointerEvents="auto";
-      closeBtn.style.opacity=1;
-      document.getElementById("lockTimer").textContent="閉じられます";
+      show("startScreen");
     }
   },1000);
 }
 
-function updateLock(t){
-  let m=String(Math.floor(t/60)).padStart(2,"0");
-  let s=String(t%60).padStart(2,"0");
-  document.getElementById("lockTimer").textContent=`結果表示ロック: ${m}:${s}`;
-}
-
 // ================= UI更新 =================
 function updateGachaCount(){
-  document.getElementById("gachaCount").textContent="Gacha: "+gachaCount;
+  document.getElementById("gachaCount").textContent = "Gacha: " + gachaCount;
 }
 
 // ================= 確率表示 =================
-document.getElementById("probBtn").onclick=()=>{
+document.getElementById("probBtn").onclick = ()=>{
   alert("ラッキーデー！...0.1%\nUR...2%\nSR...18%\nR...35%\nN...44.9%");
 };
 
 // ================= ボタン =================
-document.getElementById("startBtn").onclick=()=>{
-  if(state==="FOCUS") return;
+document.getElementById("startBtn").onclick = ()=>{
+  if(state!=="IDLE") return;
   let min = firstSession ? 5 : 25;
   firstSession=false;
   startTimer(min);
 };
 
-document.getElementById("rollBtn").onclick=rollGacha;
+document.getElementById("rollBtn").onclick = rollGacha;
 
-document.getElementById("closeResult").onclick=()=>{
-  if(state==="LOCK") return;
+document.getElementById("closeResult").onclick = ()=>{
   show("startScreen");
 };
 
