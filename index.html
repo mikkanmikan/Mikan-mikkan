@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Study Gacha Timer</title>
+
 <style>
 body { margin:0; font-family:sans-serif; background:#111; color:white; }
 .screen { display:none; height:100vh; padding:20px; box-sizing:border-box; }
@@ -32,7 +33,7 @@ button { padding:10px 20px; font-size:16px; cursor:pointer; }
 }
 
 .rainbowText {
-  font-size:50px;
+  font-size:80px;
   font-weight:bold;
   background: linear-gradient(90deg, red, orange, yellow, green, cyan, blue, violet);
   -webkit-background-clip:text;
@@ -51,12 +52,12 @@ button { padding:10px 20px; font-size:16px; cursor:pointer; }
   position:absolute;
   top:5px;
   right:5px;
-  font-size:20px;
+  font-size:25px;
   cursor:pointer;
 }
 
 #lockTimer {
-  font-size:30px;
+  font-size:25px;
   margin-top:20px;
 }
 </style>
@@ -72,7 +73,6 @@ button { padding:10px 20px; font-size:16px; cursor:pointer; }
   <div class="topGacha">
     <h2>ガチャエリア</h2>
     <button id="rollBtn">ガチャを回す</button>
-    <div id="log"></div>
   </div>
   <div class="bottomStart">
     <button id="startBtn">タイマースタート</button>
@@ -101,7 +101,7 @@ let firstSession = true;
 let timerInterval, lockInterval;
 let gachaCount = 0;
 
-// ================= 確率 =================
+// ================= 確率テーブル =================
 const gachaTable = [
   {name:"Lucky", p:0.001, lock:60, msg:"スーパーレア！1000回に1回の奇跡だ！とりあえず１時間休憩だ"},
   {name:"UR", p:0.02, lock:20, msg:"よくやった、努力の成果だ！20分休憩としよう。休憩は絶対！"},
@@ -116,7 +116,7 @@ function show(screen){
   document.getElementById(screen).style.display="block";
 }
 
-// ================= タイマー =================
+// ================= 勉強タイマー =================
 function startTimer(minutes){
   state="FOCUS";
   show("timerScreen");
@@ -140,7 +140,7 @@ function updateTimer(t){
   document.getElementById("timerDisplay").textContent = `${m}:${s}`;
 }
 
-// ================= セッション終了 =================
+// ================= 勉強終了 =================
 function endSession(){
   gachaCount++;
   updateGachaCount();
@@ -149,7 +149,7 @@ function endSession(){
   state="IDLE";
 }
 
-// ================= ガチャ =================
+// ================= ガチャ抽選 =================
 function rollGacha(){
   if(gachaCount<=0 || state!=="IDLE") return;
   gachaCount--;
@@ -162,67 +162,103 @@ function rollGacha(){
     sum += g.p;
     if(r < sum){ result=g; break; }
   }
-  showResult(result);
+  playGachaAnimation(result);
 }
 
-// ================= ガチャ結果表示 =================
-function showResult(result){
+// ================= ガチャ演出 =================
+function playGachaAnimation(result){
   state="RESULT";
+
+  const overlay = document.createElement("div");
+  overlay.style = `
+    position:fixed; inset:0; background:black;
+    display:flex; justify-content:center; align-items:center;
+    font-size:120px; font-weight:bold; color:white;
+    z-index:9999;
+  `;
+  overlay.textContent="抽選中...";
+  document.body.appendChild(overlay);
+
+  // 1.5秒後 レア表示
+  setTimeout(()=>{
+    overlay.textContent=result.name;
+    overlay.classList.add("rainbowText");
+  },1500);
+
+  // 2.5秒後 フラッシュ
+  setTimeout(()=>{
+    overlay.style.background="white";
+    overlay.style.color="black";
+  },2500);
+
+  // 3秒後 結果画面へ
+  setTimeout(()=>{
+    overlay.remove();
+    showResult(result);
+  },3000);
+}
+
+// ================= 結果画面 =================
+function showResult(result){
   show("resultScreen");
-  document.getElementById("rarityText").textContent = result.name;
-  document.getElementById("resultMsg").textContent = result.msg;
+  document.getElementById("rarityText").textContent=result.name;
+  document.getElementById("resultMsg").textContent=result.msg;
   startLock(result.lock);
 }
 
-// ================= ロック =================
+// ================= ×ロック =================
 function startLock(minutes){
   state="LOCK";
-  document.getElementById("startBtn").disabled = true;
+  const closeBtn=document.getElementById("closeResult");
+  closeBtn.style.pointerEvents="none";
+  closeBtn.style.opacity=0.3;
 
-  let t = minutes*60;
+  let t=minutes*60;
   updateLock(t);
 
   clearInterval(lockInterval);
-  lockInterval = setInterval(()=>{
+  lockInterval=setInterval(()=>{
     t--;
     updateLock(t);
     if(t<=0){
       clearInterval(lockInterval);
       state="IDLE";
-      document.getElementById("startBtn").disabled = false;
-      document.getElementById("lockTimer").textContent = "解放！";
+      closeBtn.style.pointerEvents="auto";
+      closeBtn.style.opacity=1;
+      document.getElementById("lockTimer").textContent="閉じられます";
     }
   },1000);
 }
 
 function updateLock(t){
-  let m = String(Math.floor(t/60)).padStart(2,"0");
-  let s = String(t%60).padStart(2,"0");
-  document.getElementById("lockTimer").textContent = `ロック: ${m}:${s}`;
+  let m=String(Math.floor(t/60)).padStart(2,"0");
+  let s=String(t%60).padStart(2,"0");
+  document.getElementById("lockTimer").textContent=`結果表示ロック: ${m}:${s}`;
 }
 
 // ================= UI更新 =================
 function updateGachaCount(){
-  document.getElementById("gachaCount").textContent = "Gacha: " + gachaCount;
+  document.getElementById("gachaCount").textContent="Gacha: "+gachaCount;
 }
 
 // ================= 確率表示 =================
-document.getElementById("probBtn").onclick = ()=>{
+document.getElementById("probBtn").onclick=()=>{
   alert("ラッキーデー！...0.1%\nUR...2%\nSR...18%\nR...35%\nN...44.9%");
 };
 
 // ================= ボタン =================
-document.getElementById("startBtn").onclick = ()=>{
-  if(state!=="IDLE") return;
+document.getElementById("startBtn").onclick=()=>{
+  if(state==="FOCUS") return;
   let min = firstSession ? 5 : 25;
   firstSession=false;
   startTimer(min);
 };
 
-document.getElementById("rollBtn").onclick = rollGacha;
+document.getElementById("rollBtn").onclick=rollGacha;
 
-document.getElementById("closeResult").onclick = ()=>{
-  show("startScreen"); // ロックは継続
+document.getElementById("closeResult").onclick=()=>{
+  if(state==="LOCK") return;
+  show("startScreen");
 };
 
 // ================= 初期 =================
